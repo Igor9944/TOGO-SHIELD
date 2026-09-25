@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title desc">
+  <title id="title">TOGO-SHIELD</title>
+  <desc id="desc">Blue cybersecurity shield logo</desc>
+  <defs>
+    <linearGradient id="shield" x1="18" y1="10" x2="78" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#16d7f4"/>
+      <stop offset="1" stop-color="#0751cf"/>
+    </linearGradient>
+  </defs>
+  <path d="M48 5 82 18v27c0 22-14 38-34 46C28 83 14 67 14 45V18L48 5Z" fill="#07142f" stroke="#4ce7ff" stroke-width="3"/>
+  <path d="M48 14 73 24v21c0 16-9 28-25 36-16-8-25-20-25-36V24l25-10Z" fill="url(#shield)" opacity=".95"/>
+  <path d="m31 48 11 11 24-27" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="7"/>
+</svg>
