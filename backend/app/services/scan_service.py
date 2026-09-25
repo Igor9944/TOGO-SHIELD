@@ -8,7 +8,13 @@ from app.schemas.scan import ScanRecordResponse, ScanRequest, ScanResult
 from app.services.risk_engine import assess_risk
 
 
-def analyze_and_persist(request: ScanRequest, db: Session, *, telegram: dict[str, int] | None = None, media_type: str | None = None) -> ScanResult:
+def analyze_and_persist(
+    request: ScanRequest,
+    db: Session,
+    *,
+    telegram: dict[str, int] | None = None,
+    media_type: str | None = None,
+) -> ScanResult:
     result = assess_risk(request.content, source=request.source)
     record = ScanRecord(
         source=request.source,
@@ -25,8 +31,12 @@ def analyze_and_persist(request: ScanRequest, db: Session, *, telegram: dict[str
         threat_intelligence_json=json.dumps([item.model_dump() for item in result.threat_intelligence], ensure_ascii=False),
         score_breakdown_json=json.dumps([item.model_dump() for item in result.score_breakdown], ensure_ascii=False),
     )
-    db.add(record)
-    db.commit()
+    try:
+        db.add(record)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     return result
 
 
@@ -49,4 +59,9 @@ def to_response(record: ScanRecord) -> ScanRecordResponse:
 
 
 def list_records(db: Session, limit: int = 50) -> list[ScanRecordResponse]:
-    return [to_response(record) for record in db.scalars(select(ScanRecord).order_by(ScanRecord.created_at.desc()).limit(limit)).all()]
+    return [
+        to_response(record)
+        for record in db.scalars(
+            select(ScanRecord).order_by(ScanRecord.created_at.desc()).limit(limit)
+        ).all()
+    ]
