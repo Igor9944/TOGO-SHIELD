@@ -35,7 +35,7 @@ def upgrade() -> None:
     for name in names:
         column = columns.get(name)
         if column is not None and not isinstance(column["type"], sa.BigInteger):
-            op.alter_column(name, existing_type=sa.Integer(), type_=sa.BigInteger(), existing_nullable=True)
+            op.alter_column("scans", name, existing_type=sa.Integer(), type_=sa.BigInteger(), existing_nullable=True)
 
 
 def downgrade() -> None:
@@ -58,4 +58,4 @@ def downgrade() -> None:
     for name in names:
         column = columns.get(name)
         if column is not None and isinstance(column["type"], sa.BigInteger):
-            op.alter_column(name, existing_type=sa.BigInteger(), type_=sa.Integer(), existing_nullable=True)
+            op.alter_column("scans", name, existing_type=sa.BigInteger(), type_=sa.Integer(), existing_nullable=True)
