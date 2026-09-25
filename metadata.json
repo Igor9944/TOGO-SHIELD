@@ -1,0 +1,8 @@
+{
+  "name": "TOGO-SHIELD",
+  "description": "Centre de vigilance numérique et moteur d'analyse de menaces cyber, phishing et messages suspects.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
