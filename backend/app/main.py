@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.api.dashboard import router as dashboard_router
 from app.api.scans import router as scans_router
+from app.api.file_analysis import router as file_analysis_router
 from app.api.telegram import router as telegram_router
 
 
@@ -24,6 +25,7 @@ def health() -> dict[str, str]:
     return {"status": "ok", "service": settings.app_name}
 
 
+app.include_router(file_analysis_router)
 app.include_router(scans_router)
 app.include_router(dashboard_router)
 app.include_router(telegram_router)
