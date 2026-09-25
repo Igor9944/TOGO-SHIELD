@@ -3,7 +3,7 @@ import { useState } from "react";
 
 type ScanResult = { score: number; level: string; threat_type: string; indicators: { description: string }[]; recommendations: string[] };
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+const API_URL = import.meta.env.VITE_API_URL ?? "";
 
 export default function App() {
   const [content, setContent] = useState("");
