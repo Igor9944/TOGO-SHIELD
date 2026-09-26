@@ -132,6 +132,7 @@ class FileAnalyses(BaseModel):
 class FileAnalysisResponse(BaseModel):
     """Réponse complète de l'analyse de fichier — deux moteurs séparés."""
 
+    scan_id: int | None = None
     file: FileInfo
     extracted_content: ExtractedContent
     analyses: FileAnalyses

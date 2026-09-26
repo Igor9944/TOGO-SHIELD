@@ -173,10 +173,13 @@ export default function App() {
 
   return (
     <main className="shell">
+      <video className="background-video" autoPlay muted loop playsInline poster="/brand/togo-shield-logo.jpg" aria-hidden="true">
+        <source src="/background.mp4" type="video/mp4" />
+      </video>
+      <div className="background-overlay" aria-hidden="true" />
       <nav>
         <div className="brand">
-          <img src="/brand/togo-shield-logo.svg" alt="TOGO-SHIELD" />
-          <span>TOGO-SHIELD</span>
+          <img src="/brand/togo-shield-logo.jpg" alt="TOGO-SHIELD — Cybersécurité nationale" className="brand-logo" />
         </div>
         <span className="status"><i /> Bot Telegram actif</span>
       </nav>
@@ -226,7 +229,7 @@ export default function App() {
                 <span className={`risk ${normalizeLevel(result.level)}`}>{normalizeLevel(result.level)}</span>
               </div>
               <h3>{result.threat_type}</h3>
-              <div className="bar">
+              <div className={`bar ${result.level}`}>
                 <i style={{ width: `${result.score}%` }} />
               </div>
               <p className="label">Indicateurs détectés</p>
@@ -242,7 +245,7 @@ export default function App() {
             </>
           ) : (
             <div className="empty">
-              <img src="/brand/togo-shield-logo.svg" alt="" />
+              <img src="/brand/togo-shield-logo.jpg" alt="" className="empty-logo" />
               <h3>En attente d'un message</h3>
               <p>Le résultat de votre analyse apparaîtra ici.</p>
             </div>
@@ -352,7 +355,7 @@ export default function App() {
                     <span className={riskBadgeClass(togoShield.risk_level)}>{normalizeLevel(togoShield.risk_level)}</span>
                   </div>
                   <p className="label">Niveau</p>
-                  <div className="bar">
+                  <div className={`bar ${normalizeLevel(togoShield.risk_level)}`}>
                     <i style={{ width: `${Math.min(togoShield.score, 100)}%` }} />
                   </div>
                   <p className="label">Raisons</p>

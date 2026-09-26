@@ -137,7 +137,7 @@ class TestFileValidation:
         assert exc_info.value.status_code == 415
 
     def test_rejected_size(self):
-        large_data = b"x" * (11 * 1024 * 1024)  # 11 MB
+        large_data = b"x" * (5 * 1024 * 1024)  # 5 MB > 4 Mo
         with pytest.raises(Exception) as exc_info:
             validate_upload("large.png", "image/png", large_data)
         assert exc_info.value.status_code == 413

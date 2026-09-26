@@ -15,7 +15,12 @@ class Settings(BaseSettings):
     telegram_webhook_secret: str | None = None
     virustotal_api_key: str | None = None
     urlhaus_api_key: str | None = None
-    max_upload_size_mb: int = 10
+    ai_enabled: bool = False
+    ai_provider: str = "google"
+    ai_model: str = "gemini-3.8-flash"
+    ai_timeout: int = 8
+    google_api_key: str | None = None
+    max_upload_size_mb: int = 4
     cors_origins: str = "http://localhost:5173"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

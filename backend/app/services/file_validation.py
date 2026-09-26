@@ -9,7 +9,7 @@ ALLOWED_PDF_EXT = frozenset({".pdf"})
 ALLOWED_TXT_EXT = frozenset({".txt"})
 ALLOWED_EXTENSIONS = ALLOWED_IMAGE_EXT | ALLOWED_PDF_EXT | ALLOWED_TXT_EXT
 
-MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+MAX_SIZE_BYTES = 4 * 1024 * 1024  # 4 MB (Vercel Function body limit ~4.5 MB)
 
 MAGIC_BYTES = {
     b"\xff\xd8\xff": {".jpg", ".jpeg"},
@@ -59,7 +59,7 @@ def validate_upload(
     if len(data) > MAX_SIZE_BYTES:
         raise HTTPException(
             status_code=413,
-            detail=f"Fichier trop volumineux : {len(data)} octets (max {MAX_SIZE_BYTES} octets / 10 Mo)",
+            detail=f"Fichier trop volumineux : {len(data)} octets (max {MAX_SIZE_BYTES} octets / 4 Mo)",
         )
 
     normalized_content_type = content_type.split(";", 1)[0].strip().lower()

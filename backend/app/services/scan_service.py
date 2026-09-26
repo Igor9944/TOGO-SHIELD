@@ -1,11 +1,17 @@
 import json
+import logging
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.models.scan import ScanRecord
+from app.schemas.ai import AIAnalysis
 from app.schemas.scan import ScanRecordResponse, ScanRequest, ScanResult
+from app.services.ai_analyst import analyze_with_gemini
 from app.services.risk_engine import assess_risk
+
+logger = logging.getLogger(__name__)
 
 
 def analyze_and_persist(
@@ -16,6 +22,34 @@ def analyze_and_persist(
     media_type: str | None = None,
 ) -> ScanResult:
     result = assess_risk(request.content, source=request.source)
+
+    # ── Analyse IA (optionnelle, apéridment sur le Risk Engine) ──
+    ai_analysis: AIAnalysis | None = None
+    settings = get_settings()
+    if settings.ai_enabled and settings.google_api_key:
+        try:
+            ai_analysis = analyze_with_gemini(
+                content=request.content,
+                score=result.score,
+                level=result.level.value,
+                threat_type=result.threat_type,
+                indicators=[item.model_dump() for item in result.indicators],
+                urls=result.urls,
+            )
+        except Exception as exc:
+            logger.warning("AI analysis skipped: %s", exc)
+            ai_analysis = AIAnalysis(
+                enabled=True,
+                status="error",
+                error=str(exc),
+            )
+    elif settings.ai_enabled:
+        ai_analysis = AIAnalysis(
+            enabled=True,
+            status="not_configured",
+            error="GOOGLE_API_KEY non configurée",
+        )
+
     record = ScanRecord(
         source=request.source,
         content=request.content,

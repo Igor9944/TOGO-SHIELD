@@ -119,7 +119,6 @@ function assessRisk(content: string, source: string = "web"): ScanResult {
       indicators.push({ type, description, weight });
       score += weight;
     }
-    // Threat intel stubs (or configured providers)
     const vtResult: ProviderResult = {
       provider: "VirusTotal",
       known: false,
@@ -176,7 +175,6 @@ function assessRisk(content: string, source: string = "web"): ScanResult {
   };
 }
 
-// In-memory store initialized with realistic initial samples
 let nextId = 1;
 const scanRecords: ScanRecord[] = [];
 
@@ -192,7 +190,6 @@ function persistScan(result: ScanResult, content: string, extra: Partial<ScanRec
   return record;
 }
 
-// Seed initial records for dashboard demonstration
 const seedExamples = [
   {
     content: "URGENT : Votre compte Flooz a été suspendu. Envoyez votre code secret immédiatement sur http://flooz-verification-login.com pour débloquer votre solde.",
@@ -213,139 +210,123 @@ for (const seed of seedExamples) {
   persistScan(result, seed.content, { source: seed.source });
 }
 
-async function startServer() {
-  const app = express();
-  app.use(cors());
-  app.use(express.json());
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-  // Health
-  app.get("/health", (_req, res) => {
-    res.json({ status: "ok", service: "TOGO-SHIELD" });
-  });
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", service: "TOGO-SHIELD" });
+});
 
-  // Create scan
-  app.post("/api/scans", (req, res) => {
-    const { content, source = "web" } = req.body;
-    if (!content || typeof content !== "string" || !content.trim()) {
-      return res.status(422).json({ detail: "Content is required" });
-    }
-    const result = assessRisk(content, source);
-    persistScan(result, content, { source });
-    res.json(result);
-  });
-
-  // List scans
-  app.get("/api/scans", (req, res) => {
-    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 100);
-    res.json(scanRecords.slice(0, limit));
-  });
-
-  // Get scan by id
-  app.get("/api/scans/:id", (req, res) => {
-    const id = parseInt(req.params.id);
-    const found = scanRecords.find(r => r.id === id);
-    if (!found) {
-      return res.status(404).json({ detail: "Scan not found" });
-    }
-    res.json(found);
-  });
-
-  // Dashboard summary
-  app.get("/api/dashboard/summary", (_req, res) => {
-    const total = scanRecords.length;
-    const levels = {
-      low: scanRecords.filter(r => r.level === "low").length,
-      medium: scanRecords.filter(r => r.level === "medium").length,
-      critical: scanRecords.filter(r => r.level === "critical").length,
-    };
-    const telegram = scanRecords.filter(r => r.source === "telegram").length;
-    const urlsCount = scanRecords.filter(r => r.content.includes("http")).length;
-    const categories = {
-      phishing: scanRecords.filter(r => r.threat_type === "phishing").length,
-      suspicious: scanRecords.filter(r => r.threat_type === "suspicious").length,
-      "low risk": scanRecords.filter(r => r.threat_type === "low risk").length,
-    };
-    const latest = scanRecords[0]?.created_at || null;
-
-    res.json({
-      total_scans: total,
-      critical_threats: levels.critical,
-      medium_risk: levels.medium,
-      low_risk: levels.low,
-      urls_analyzed: urlsCount,
-      threats_detected: total - levels.low,
-      telegram_scans: telegram,
-      last_activity: latest,
-      threat_categories: categories,
-      risk_distribution: levels,
-    });
-  });
-
-  // Telegram status
-  app.get("/api/telegram/status", (_req, res) => {
-    const configured = Boolean(process.env.TELEGRAM_BOT_TOKEN);
-    const enabled = process.env.TELEGRAM_ENABLED === "true";
-    res.json({
-      status: configured && enabled ? "connected" : "not_configured",
-      bot_username: "@TOGOShieldBot",
-      configured,
-      webhook_url: process.env.TELEGRAM_WEBHOOK_URL || null,
-    });
-  });
-
-  // Telegram webhook
-  app.post("/api/telegram/webhook", (req, res) => {
-    const secret = req.headers["x-telegram-bot-api-secret-token"];
-    if (process.env.TELEGRAM_WEBHOOK_SECRET && secret !== process.env.TELEGRAM_WEBHOOK_SECRET) {
-      return res.status(401).json({ detail: "Invalid Telegram webhook secret" });
-    }
-    const update = req.body;
-    const message = update?.message || {};
-    const text = message.text || message.caption;
-    const chat = message.chat || {};
-    if (!text || !chat.id) {
-      return res.json({ status: "ignored" });
-    }
-    const messageId = message.message_id;
-    if (messageId && scanRecords.some(r => r.telegram_message_id === messageId)) {
-      return res.json({ status: "duplicate" });
-    }
-    const result = assessRisk(text, "telegram");
-    persistScan(result, text, {
-      source: "telegram",
-      telegram_chat_id: Number(chat.id),
-      telegram_user_id: Number(message.from?.id || 0),
-      telegram_message_id: messageId ? Number(messageId) : null,
-    });
-    res.json({ status: "processed" });
-  });
-
-  // Image scan mock/fallback
-  app.post("/api/scans/image", (_req, res) => {
-    res.status(501).json({ error: "OCR image scan not available in this environment. Please paste extracted text." });
-  });
-
-  // Vite development integration
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    app.use(express.static(path.resolve(__dirname, "dist")));
-    app.get("*", (_req, res) => {
-      res.sendFile(path.resolve(__dirname, "dist", "index.html"));
-    });
+app.post("/api/scans", (req, res) => {
+  const { content, source = "web" } = req.body;
+  if (!content || typeof content !== "string" || !content.trim()) {
+    return res.status(422).json({ detail: "Content is required" });
   }
+  const result = assessRisk(content, source);
+  persistScan(result, content, { source });
+  res.json(result);
+});
 
-  const PORT = 3000;
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`TOGO-SHIELD server running on http://0.0.0.0:${PORT}`);
+app.get("/api/scans", (req, res) => {
+  const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 50, 1), 100);
+  res.json(scanRecords.slice(0, limit));
+});
+
+app.get("/api/scans/:id", (req, res) => {
+  const id = parseInt(req.params.id);
+  const found = scanRecords.find(r => r.id === id);
+  if (!found) {
+    return res.status(404).json({ detail: "Scan not found" });
+  }
+  res.json(found);
+});
+
+app.get("/api/dashboard/summary", (_req, res) => {
+  const total = scanRecords.length;
+  const levels = {
+    low: scanRecords.filter(r => r.level === "low").length,
+    medium: scanRecords.filter(r => r.level === "medium").length,
+    critical: scanRecords.filter(r => r.level === "critical").length,
+  };
+  const telegram = scanRecords.filter(r => r.source === "telegram").length;
+  const urlsCount = scanRecords.filter(r => r.content.includes("http")).length;
+  const categories = {
+    phishing: scanRecords.filter(r => r.threat_type === "phishing").length,
+    suspicious: scanRecords.filter(r => r.threat_type === "suspicious").length,
+    "low risk": scanRecords.filter(r => r.threat_type === "low risk").length,
+  };
+  const latest = scanRecords[0]?.created_at || null;
+
+  res.json({
+    total_scans: total,
+    critical_threats: levels.critical,
+    medium_risk: levels.medium,
+    low_risk: levels.low,
+    urls_analyzed: urlsCount,
+    threats_detected: total - levels.low,
+    telegram_scans: telegram,
+    last_activity: latest,
+    threat_categories: categories,
+    risk_distribution: levels,
+  });
+});
+
+app.get("/api/telegram/status", (_req, res) => {
+  const configured = Boolean(process.env.TELEGRAM_BOT_TOKEN);
+  const enabled = process.env.TELEGRAM_ENABLED === "true";
+  res.json({
+    status: configured && enabled ? "connected" : "not_configured",
+    bot_username: "@TOGOShieldBot",
+    configured,
+    webhook_url: process.env.TELEGRAM_WEBHOOK_URL || null,
+  });
+});
+
+app.post("/api/telegram/webhook", (req, res) => {
+  const secret = req.headers["x-telegram-bot-api-secret-token"];
+  if (process.env.TELEGRAM_WEBHOOK_SECRET && secret !== process.env.TELEGRAM_WEBHOOK_SECRET) {
+    return res.status(401).json({ detail: "Invalid Telegram webhook secret" });
+  }
+  const update = req.body;
+  const message = update?.message || {};
+  const text = message.text || message.caption;
+  const chat = message.chat || {};
+  if (!text || !chat.id) {
+    return res.json({ status: "ignored" });
+  }
+  const messageId = message.message_id;
+  if (messageId && scanRecords.some(r => r.telegram_message_id === messageId)) {
+    return res.json({ status: "duplicate" });
+  }
+  const result = assessRisk(text, "telegram");
+  persistScan(result, text, {
+    source: "telegram",
+    telegram_chat_id: Number(chat.id),
+    telegram_user_id: Number(message.from?.id || 0),
+    telegram_message_id: messageId ? Number(messageId) : null,
+  });
+  res.json({ status: "processed" });
+});
+
+app.post("/api/scans/image", (_req, res) => {
+  res.status(501).json({ error: "OCR image scan not available in this environment. Please paste extracted text." });
+});
+
+if (process.env.NODE_ENV !== "production") {
+  const vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: "spa",
+  });
+  app.use(vite.middlewares);
+  app.listen(Number(process.env.PORT) || 3000, "0.0.0.0", () => {
+    console.log(`TOGO-SHIELD running at http://localhost:${Number(process.env.PORT) || 3000}`);
+  });
+} else {
+  app.use(express.static(path.resolve(__dirname, "dist")));
+  app.get("*", (_req, res) => {
+    res.sendFile(path.resolve(__dirname, "dist", "index.html"));
   });
 }
 
-startServer().catch(err => {
-  console.error("Failed to start server:", err);
-  process.exit(1);
-});
+export default app;
