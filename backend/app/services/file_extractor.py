@@ -9,6 +9,7 @@ Supporte :
 from __future__ import annotations
 
 import re
+import os
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Optional
@@ -87,6 +88,10 @@ def _ocr_image(data: bytes) -> tuple[str, bool, str | None]:
     try:
         from PIL import Image
         import pytesseract
+        import tesseract_bin
+
+        pytesseract.pytesseract.tesseract_cmd = tesseract_bin.TESSERACT_PATH
+        os.environ.setdefault("TESSDATA_PREFIX", tesseract_bin.TESSDATA_PREFIX)
 
         image = Image.open(BytesIO(data))
         # Convertir en RGB si nécessaire (transparence, etc.)

@@ -168,14 +168,21 @@ class TestFileExtraction:
         assert len(result.urls) >= 1
         assert any("example.com" in u for u in result.urls)
 
-    def test_image_extraction_without_ocr(self):
-        """PNG sans OCR disponible → texte vide, ocr_message défini."""
+    def test_image_extraction_with_ocr(self, monkeypatch):
+        """Le texte OCR passe par l'extraction d'URL du pipeline fichier."""
+        import pytesseract
+
+        monkeypatch.setattr(
+            pytesseract,
+            "image_to_string",
+            lambda image: "Consultez https://example.com/image",
+        )
         data = make_png_data()
         result = extract_text_from_data(data, "image", "img.png")
-        # Sans pytesseract installé, OCR échoue gracefullement
-        assert result.text == ""
-        assert result.ocr_used is False
-        assert result.ocr_message is not None  # "OCR unavailable" ou similaire
+        assert result.text == "Consultez https://example.com/image"
+        assert result.ocr_used is True
+        assert result.ocr_message is None
+        assert result.urls == ["https://example.com/image"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
