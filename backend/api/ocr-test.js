@@ -10,8 +10,7 @@ module.exports = async function handler(req, res) {
     if (!response.ok) throw new Error("sample fetch failed");
     const image = Buffer.from(await response.arrayBuffer());
     worker = await createWorker("eng", 1, {
-      workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/worker.min.js",
-      corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0",
+      workerPath: require.resolve("tesseract.js/src/worker-script/node/index.js"),
     });
     const result = await worker.recognize(image);
     return res.status(200).json({
