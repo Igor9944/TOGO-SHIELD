@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     urlhaus_api_key: str | None = None
     max_upload_size_mb: int = 10
     cors_origins: str = "http://localhost:5173"
+    ocr_service_url: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
