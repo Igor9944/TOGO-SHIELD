@@ -11,6 +11,7 @@ module.exports = async function handler(req, res) {
     const image = Buffer.from(await response.arrayBuffer());
     worker = await createWorker("eng", 1, {
       workerPath: require.resolve("tesseract.js/src/worker-script/node/index.js"),
+      corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0",
     });
     const result = await worker.recognize(image);
     return res.status(200).json({
