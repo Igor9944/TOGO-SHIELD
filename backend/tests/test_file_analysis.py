@@ -35,6 +35,7 @@ from app.schemas.file_analysis import (
 from app.services.file_validation import validate_upload, compute_sha256
 from app.services.file_analyzer import analyze_file
 from app.services.file_extractor import extract_text_from_data
+from app.services.url_analyzer import extract_urls
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -168,14 +169,23 @@ class TestFileExtraction:
         assert len(result.urls) >= 1
         assert any("example.com" in u for u in result.urls)
 
-    def test_image_extraction_without_ocr(self):
-        """PNG sans OCR disponible → texte vide, ocr_message défini."""
+    def test_image_extraction_metadata(self):
+        """L'OCR image reste explicite : utilisé si disponible, sinon message d'erreur."""
         data = make_png_data()
         result = extract_text_from_data(data, "image", "img.png")
-        # Sans pytesseract installé, OCR échoue gracefullement
-        assert result.text == ""
-        assert result.ocr_used is False
-        assert result.ocr_message is not None  # "OCR unavailable" ou similaire
+        assert result.extraction_method == "ocr"
+        assert isinstance(result.ocr_used, bool)
+        if not result.ocr_used:
+            assert result.ocr_message is not None
+
+    def test_markdown_url_normalization(self):
+        text = "Connectez-vous [https://example.com/paypal-login](https://example.com/paypal-login)."
+        result = extract_text_from_data(text.encode(), "text", "message.txt")
+        assert result.urls == ["https://example.com/paypal-login"]
+
+    def test_markdown_and_plain_duplicate_are_deduplicated(self):
+        text = "[https://example.com/login](https://example.com/login) puis https://example.com/login."
+        assert extract_urls(text) == ["https://example.com/login"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -208,6 +218,7 @@ class TestFileAnalyzer:
         data = make_txt_data("Visitez https://example.com pour vérifier votre compte.")
         result = analyze_file("lien.txt", "text/plain", data)
 
+        assert result.extracted_content.urls == ["https://example.com"]
         assert len(result.analyses.urlhaus) >= 1
         urlhaus_entry = result.analyses.urlhaus[0]
         assert urlhaus_entry.source == "urlhaus"
