@@ -261,3 +261,8 @@ def _extract_urls(text: str) -> list[str]:
             urls.add(link_url)
 
     return sorted(urls)
+
+
+def extract_urls_from_text(text: str) -> list[str]:
+    """Extrait les URLs depuis un texte déjà obtenu par OCR ou autre source."""
+    return _extract_urls(text)
