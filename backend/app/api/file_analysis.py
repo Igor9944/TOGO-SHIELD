@@ -25,8 +25,8 @@ router = APIRouter(prefix="/api/analyze", tags=["file-analysis"])
     response_model=FileAnalysisResponse,
     summary="Analyser un fichier uploadé",
     description=(
-        "Upload un fichier (image, PDF, texte) pour analyse TOGO-SHIELD + URLhaus. "
-        "Formats: JPG, JPEG, PNG, WEBP, PDF, TXT. Max 10 Mo."
+        "Upload un fichier (image, PDF, TXT ou DOCX) pour analyse TOGO-SHIELD + URLhaus. "
+        "Formats: JPG, JPEG, PNG, WEBP, PDF, TXT, DOCX. Max 4 Mo."
     ),
 )
 async def analyze_file_upload(
