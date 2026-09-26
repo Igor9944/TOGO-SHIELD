@@ -1,0 +1,79 @@
+name: Migrate Production Database
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production_migration:
+        description: Confirm that the production database should be migrated
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: togo-shield-production-database-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    if: ${{ inputs.confirm_production_migration }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out migration source
+        uses: actions/checkout@v4
+        with:
+          ref: feat/file-analysis-urlhaus
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Validate database secret and target
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python - <<'PY'
+          import os
+          from sqlalchemy.engine import make_url
+
+          value = os.environ.get("DATABASE_URL")
+          if not value:
+              raise SystemExit("The production DATABASE_URL secret is missing.")
+
+          try:
+              backend = make_url(value).get_backend_name()
+          except Exception:
+              raise SystemExit("The production DATABASE_URL secret is invalid.") from None
+
+          if backend != "postgresql":
+              raise SystemExit("Refusing migration: target is not PostgreSQL.")
+
+          print("DATABASE_URL is configured; PostgreSQL target verified.")
+          PY
+
+      - name: Show current migration revision
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: alembic current
+
+      - name: Apply additive migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: alembic upgrade head
+
+      - name: Verify migration head
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: alembic current
