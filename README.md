@@ -1,107 +1,114 @@
 # TOGO-SHIELD
 
-A comprehensive cybersecurity threat analysis platform focused on detecting phishing, analyzing, and preventing digital threats in the African context, with special emphasis on Togo.
+Plateforme de cybersécurité centrée sur la détection de phishing et l'analyse de contenus suspects dans le contexte africain, avec une adaptation aux usages au Togo.
 
-## Features
+## Fonctionnalités
 
-- Telegram Bot Interface (@TOGOShieldBot) for real-time threat analysis
-- Web Dashboard for administration and monitoring
-- Risk Engine for scoring threats (0-100 scale)
-- URL Analyzer for detecting malicious links
-- Image analysis capabilities (OCR ready)
-- Campaign management for threat tracking
-- PostgreSQL database for persistent storage
-- Docker containerization for easy deployment
+- Interface Web React/Vite pour analyser des messages, URLs et fichiers
+- Bot Telegram (@TOGOShieldBot) avec analyse de texte, URLs, images et documents
+- Moteur de risque transparent avec score de 0 à 100
+- Analyse d'URLs sans ouvrir les liens soumis
+- OCR des images avec Tesseract
+- Extraction de texte depuis PDF, TXT et DOCX
+- Threat Intelligence via URLhaus et VirusTotal lorsqu'une clé est configurée
+- Persistance PostgreSQL des analyses, y compris les analyses de fichiers et Telegram
+- Historique et endpoints de dashboard pour le suivi des scans
 
-## Architecture
-
-The platform follows a modular architecture:
+## Architecture de production
 
 ```
-TELEGRAM
-    ↓
-Telegram Bot API
-    ↓
-Webhook HTTPS
-    ↓
-FASTAPI BACKEND
-    ↓
-┌─────────────┼──────────────────┐
-│             │                  │
-▼             ▼                  ▼
-Telegram Service Risk Engine   AI Service
-    │             │                  │
-    └─────────────┼──────────────────┘
-                  ▼
-            PostgreSQL
-                  ▼
-            Dashboard React
+WEB REACT/VITE ──────────────┐
+                             │
+TELEGRAM BOT ── Webhook ─────┤
+                             ▼
+                       FASTAPI BACKEND
+                             │
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+        Risk Engine     File Analysis   Threat Intel
+              │          OCR/PDF/DOCX    URLhaus/VT
+              └──────────────┼──────────────┘
+                             ▼
+                        PostgreSQL
 ```
 
-## Installation
+Le backend de production est **FastAPI dans `backend/`**. Le fichier racine `server.ts` correspond à une ancienne implémentation et n'est pas utilisé par les projets Vercel de production.
+
+## Déploiement Vercel
+
+- Backend : projet Vercel `togo-shield`
+- Frontend : projet Vercel `togo-shield-web`
+- Backend public : `https://togo-shield.vercel.app`
+- Frontend public : `https://togo-shield-web.vercel.app`
+
+Le frontend consomme le backend via `VITE_API_URL`.
+
+## Limites fichiers
+
+La limite applicative est fixée à **4 MB** afin de rester compatible avec la limite de requête des fonctions Vercel utilisée par ce projet.
+
+Formats pris en charge :
+
+- JPG / JPEG
+- PNG / WEBP
+- PDF
+- TXT
+- DOCX
+
+## Installation locale
 
 ```bash
 docker compose up --build
 ```
 
-The API is available at `http://localhost:8000` and the web dashboard at
-`http://localhost:5173` during development. The default database URL targets
-the PostgreSQL service from Compose; local development falls back to SQLite
-when `DATABASE_URL` is not set.
+Le backend est disponible sur `http://localhost:8000` et le frontend sur `http://localhost:5173`.
 
-## Environment Variables
+### Backend
 
-Configure the local `.env` file with the required values:
+```bash
+cd backend
+uvicorn app.main:app --reload
+```
 
-- DATABASE_URL: PostgreSQL connection string
-- JWT_SECRET_KEY: Secret key for JWT tokens
-- TELEGRAM_BOT_TOKEN: Token from @BotFather
-- TELEGRAM_WEBHOOK_URL: Your webhook URL (for production)
-- TELEGRAM_WEBHOOK_SECRET: Secret for webhook validation
-- AI_PROVIDER: AI provider (mock, localai, openai, etc.)
+### Frontend
 
-## Usage
+```bash
+npm install
+npm run dev
+```
 
-1. Start the services: `docker compose up --build`
-2. Configure a bot with `@BotFather`, then set `TELEGRAM_BOT_TOKEN` in `.env`.
-3. Set `TELEGRAM_ENABLED=true` and configure the webhook secret in production.
-4. Use `POST /api/telegram/webhook` for Telegram updates or
-     `POST /api/telegram/simulate` for a local demonstration.
+## Variables d'environnement backend
 
-### API smoke test
+Les secrets réels ne doivent jamais être commités dans Git.
+
+Variables principales :
+
+- `DATABASE_URL`
+- `JWT_SECRET_KEY`
+- `TELEGRAM_ENABLED`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_WEBHOOK_URL`
+- `TELEGRAM_WEBHOOK_SECRET`
+- `VIRUSTOTAL_API_KEY`
+- `URLHAUS_API_KEY`
+
+## Test rapide
 
 ```bash
 curl http://localhost:8000/health
+
 curl -X POST http://localhost:8000/api/scans \
-    -H 'content-type: application/json' \
-    -d '{"content":"URGENT: envoyez votre OTP sur https://example.com"}'
+  -H 'content-type: application/json' \
+  -d '{"content":"URGENT : envoyez votre OTP sur https://example.com"}'
 ```
 
-The current MVP stores scans in PostgreSQL (or SQLite locally), applies a
-transparent rules and URL score, and formats Telegram replies without ever
-visiting submitted URLs. OCR, JWT administration, Alembic migrations and
-campaign management remain extension points for the next iteration.
+## Sécurité
 
-## Development
+- Les URLs soumises sont analysées sans navigation côté serveur.
+- Les clés API restent côté backend.
+- Le webhook Telegram vérifie le secret `X-Telegram-Bot-API-Secret-Token`.
+- Les journaux HTTP du service Telegram ne doivent pas contenir les URLs incluant le token du bot.
 
-For local development:
-1. Backend: `uvicorn app.main:app --reload`
-2. Frontend: `npm run dev` (in frontend directory)
+## Licence
 
-## Testing
-
-Run tests with: `pytest` (backend) and appropriate frontend test commands.
-
-## Provider keys
-
-`VIRUSTOTAL_API_KEY` and `URLHAUS_API_KEY` are optional backend-only keys.
-They are used with short timeouts for reputation lookups; submitted URLs are
-never opened by the server. Keep real keys in `.env`; `.env.example` is safe
-to commit.
-
-## License
-
-MIT License
-
-
-<!-- Production deployment trigger: 2026-09-26 -->
+MIT
