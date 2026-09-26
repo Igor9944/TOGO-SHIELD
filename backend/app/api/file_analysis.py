@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import logging
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -33,6 +33,7 @@ router = APIRouter(prefix="/api/analyze", tags=["file-analysis"])
 )
 async def analyze_file_upload(
     file: UploadFile = File(...),
+    ocr_text: str | None = Form(default=None),
     db: Session = Depends(get_db),
 ) -> FileAnalysisResponse:
     """Valide, extrait, analyse et persiste un scan de fichier."""
@@ -60,6 +61,7 @@ async def analyze_file_upload(
             filename=file.filename or "unknown",
             content_type=file.content_type or "application/octet-stream",
             data=data,
+            ocr_text=ocr_text,
         )
 
         togo = result.analyses.togo_shield
