@@ -175,8 +175,7 @@ export default function App() {
     <main className="shell">
       <nav>
         <div className="brand">
-          <img src="/brand/togo-shield-logo.svg" alt="TOGO-SHIELD" />
-          <span>TOGO-SHIELD</span>
+          <img src="/brand/togo-shield-logo.jpg" alt="TOGO-SHIELD — Cybersécurité nationale" className="brand-logo" />
         </div>
         <span className="status"><i /> Bot Telegram actif</span>
       </nav>
@@ -242,7 +241,7 @@ export default function App() {
             </>
           ) : (
             <div className="empty">
-              <img src="/brand/togo-shield-logo.svg" alt="" />
+              <img src="/brand/togo-shield-logo.jpg" alt="" className="empty-logo" />
               <h3>En attente d'un message</h3>
               <p>Le résultat de votre analyse apparaîtra ici.</p>
             </div>
