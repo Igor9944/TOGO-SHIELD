@@ -19,7 +19,7 @@ def telegram_status() -> TelegramStatus:
     return TelegramStatus(
         status="connected" if settings.telegram_enabled and configured else "not_configured",
         configured=configured,
-        webhook_url=settings.telegram_webhook_url,
+        webhook_url="https://togo-shield.vercel.app/api/telegram/webhook",
     )
 
 
