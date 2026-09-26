@@ -1,8 +1,6 @@
 import hashlib
 import os
-import tempfile
 from dataclasses import dataclass
-from typing import BinaryIO
 
 ALLOWED_IMAGE_EXT = frozenset({".jpg", ".jpeg", ".png", ".webp"})
 ALLOWED_PDF_EXT = frozenset({".pdf"})
@@ -34,11 +32,11 @@ def compute_sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def detect_extension_from_magic(data: bytes) -> str | None:
-    """Detect file extension from magic bytes. Returns extension or None."""
+def detect_extensions_from_magic(data: bytes) -> frozenset[str] | None:
+    """Detect allowed extensions from magic bytes without arbitrarily choosing one."""
     for magic, exts in MAGIC_BYTES.items():
         if data.startswith(magic):
-            return next(iter(exts))
+            return frozenset(exts)
     return None
 
 
@@ -60,7 +58,7 @@ def validate_upload(
     if len(data) > MAX_SIZE_BYTES:
         raise HTTPException(
             status_code=413,
-            detail=f"Fichier trop volumineux : {len(data)} octets (max {MAX_SIZE_BYTES} octets / 10 Mo)",
+            detail=f"Fichier trop volumineux : {len(data)} octets (max {MAX_SIZE_BYTES} octets / 4 Mo)",
         )
 
     normalized_content_type = content_type.split(";", 1)[0].strip().lower()
@@ -80,16 +78,17 @@ def validate_upload(
             detail=f"Type MIME incohérent pour {filename}: {normalized_content_type} (autorisé: {', '.join(sorted(allowed)) or 'aucun'}).",
         )
 
-    detected_ext = detect_extension_from_magic(data)
+    detected_exts = detect_extensions_from_magic(data)
     if ext == ".webp" and not (data.startswith(b"RIFF") and len(data) >= 12 and data[8:12] == b"WEBP"):
         raise HTTPException(status_code=415, detail="Fichier WEBP invalide : signature RIFF/WEBP absente.")
     if ext == ".docx" and not data.startswith(b"PK"):
         raise HTTPException(status_code=415, detail="Fichier DOCX invalide : signature ZIP absente.")
 
-    if detected_ext is not None and ext and detected_ext != ext:
+    if detected_exts is not None and ext not in detected_exts:
+        expected = ", ".join(sorted(detected_exts))
         raise HTTPException(
             status_code=415,
-            detail=f"Incohérence entre l'extension ({ext}) et le type de fichier réel (magic bytes: {detected_ext}). Rejet de sécurité.",
+            detail=f"Incohérence entre l'extension ({ext}) et le type de fichier réel (extensions compatibles: {expected}). Rejet de sécurité.",
         )
 
     if ext in ALLOWED_IMAGE_EXT:
