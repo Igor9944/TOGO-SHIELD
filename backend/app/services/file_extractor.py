@@ -5,6 +5,7 @@ Supporte :
 - Images (JPEG, PNG, WEBP) → OCR avec Tesseract
 - PDF → extraction de texte avec pypdf, sans faux statut OCR
 - TXT → lecture directe
+- DOCX → extraction de texte et des hyperliens
 
 Les URLs sont normalisées via le même extracteur que le moteur d'analyse.
 """
@@ -50,6 +51,11 @@ def extract_text_from_data(data: bytes, kind: str, filename: str) -> ExtractedCo
             ocr_message = "PDF scanné ou sans couche texte : OCR PDF non disponible sur ce runtime."
         urls = extract_urls(text)
 
+    elif kind == "docx":
+        extraction_method = "docx_text"
+        text, docx_urls = _extract_docx(data)
+        urls = list(dict.fromkeys([*extract_urls(text), *docx_urls]))
+
     elif kind == "text":
         extraction_method = "raw_text"
         text = _decode_text(data, filename)
@@ -83,6 +89,41 @@ def _ocr_image(data: bytes) -> tuple[str, bool, str | None]:
         return ("", False, "OCR unavailable (Pillow/pytesseract not installed)")
     except Exception as exc:
         return ("", False, f"OCR error: {type(exc).__name__}")
+
+
+def _extract_docx(data: bytes) -> tuple[str, list[str]]:
+    """Extrait le texte, les tableaux et les hyperliens d'un DOCX."""
+    try:
+        from docx import Document
+        from docx.opc.constants import RELATIONSHIP_TYPE as RT
+
+        document = Document(BytesIO(data))
+        chunks: list[str] = []
+
+        for paragraph in document.paragraphs:
+            value = paragraph.text.strip()
+            if value:
+                chunks.append(value)
+
+        for table in document.tables:
+            for row in table.rows:
+                cells = [cell.text.strip() for cell in row.cells]
+                row_text = " | ".join(cell for cell in cells if cell)
+                if row_text:
+                    chunks.append(row_text)
+
+        links: list[str] = []
+        for rel in document.part.rels.values():
+            if rel.reltype == RT.HYPERLINK and rel.is_external:
+                target = str(rel.target_ref).strip()
+                if target:
+                    links.append(target)
+
+        return "\n\n".join(chunks), list(dict.fromkeys(links))
+    except ImportError:
+        return "", []
+    except Exception:
+        return "", []
 
 
 def _extract_pdf_text(data: bytes) -> str:
