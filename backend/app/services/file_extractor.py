@@ -2,16 +2,18 @@
 Service d'extraction de contenu pour fichiers uploadés.
 
 Supporte :
-- Images (JPEG, PNG, WEBP) → OCR avec Tesseract
-- PDF → extraction texte (PyPDF2/pdfplumber si dispo, sinon OCR)
+- Images (JPEG, PNG, WEBP) → OCR avec Tesseract local ou fallback Tesseract.js/Vercel
+- PDF → extraction texte avec les bibliothèques disponibles
 - TXT → lecture directe
 """
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Optional
+
+import httpx
 
 URL_PATTERN = re.compile(r"https?://[^\s<>)\]]+", re.IGNORECASE)
 MARKDOWN_LINK_PATTERN = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
@@ -28,17 +30,7 @@ class ExtractedContent:
 
 
 def extract_text_from_data(data: bytes, kind: str, filename: str) -> ExtractedContent:
-    """
-    Extrait le texte et les URLs d'un fichier selon son type.
-
-    Args:
-        data: octets du fichier
-        kind: "image", "pdf", ou "text"
-        filename: nom du fichier (pour extension)
-
-    Returns:
-        ExtractedContent avec texte, URLs, et métadonnées
-    """
+    """Extrait le texte et les URLs d'un fichier selon son type."""
     urls: list[str] = []
     text = ""
     ocr_used = False
@@ -57,6 +49,9 @@ def extract_text_from_data(data: bytes, kind: str, filename: str) -> ExtractedCo
             ocr_message = "PDF scanné — OCR appliqué"
             ocr_used = True
             extraction_method = "pdf_ocr"
+            # Tesseract.js ne gère pas directement les PDF : le PDF doit
+            # d'abord être rasterisé. On conserve donc ici le comportement
+            # précédent et n'utilise le fallback OCR que pour les images.
             text_from_ocr, _, _ = _ocr_image(data)
             if text_from_ocr:
                 text = text + "\n\n" + text_from_ocr if text else text_from_ocr
@@ -82,37 +77,81 @@ def _ocr_image(data: bytes) -> tuple[str, bool, str | None]:
     """
     Lance l'OCR sur une image.
 
-    Returns: (text, ocr_available, message_erreur)
+    Stratégie :
+    1. Tesseract système local (développement / environnement complet).
+    2. Fallback HTTP vers Tesseract.js sur Vercel si le binaire système
+       n'existe pas dans le runtime serverless.
     """
     try:
         from PIL import Image
         import pytesseract
 
         image = Image.open(BytesIO(data))
-        # Convertir en RGB si nécessaire (transparence, etc.)
         if image.mode in ("RGBA", "P", "LA"):
             image = image.convert("RGB")
+
         text = pytesseract.image_to_string(image).strip()
-        return (text, True, None)
+        if text:
+            return (text, True, None)
+
+        # Le binaire peut être installé mais ne pas disposer des données
+        # linguistiques attendues : on tente quand même le fallback distant.
+        local_error = "Tesseract local n'a retourné aucun texte"
     except ImportError:
-        return ("", False, "OCR unavailable (Pillow/pytesseract not installed)")
+        local_error = "Pillow/pytesseract non installé"
     except Exception as exc:
-        return ("", False, f"OCR error: {type(exc).__name__}")
+        local_error = f"OCR local indisponible ({type(exc).__name__})"
+
+    remote_text, remote_error = _ocr_remote(data)
+    if remote_text:
+        return (remote_text, True, None)
+
+    return (
+        "",
+        False,
+        remote_error or local_error,
+    )
 
 
-# ─── PDF ───────────────────────────────────────────────────────────────
+def _ocr_remote(data: bytes) -> tuple[str, str | None]:
+    """Utilise l'endpoint Tesseract.js du même déploiement Vercel."""
+    service_url = os.getenv("OCR_SERVICE_URL")
+    if not service_url and os.getenv("VERCEL") == "1":
+        deployment_url = os.getenv("VERCEL_URL")
+        if deployment_url:
+            service_url = f"https://{deployment_url}/api/ocr"
+
+    if not service_url:
+        return "", None
+
+    try:
+        response = httpx.post(
+            service_url,
+            content=data,
+            headers={"content-type": "application/octet-stream"},
+            timeout=45.0,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        text = str(payload.get("text") or "").strip()
+        if text:
+            return text, None
+        return "", "OCR distant n'a retourné aucun texte"
+    except httpx.TimeoutException:
+        return "", "OCR distant timeout"
+    except httpx.HTTPStatusError as exc:
+        return "", f"OCR distant HTTP {exc.response.status_code}"
+    except Exception as exc:
+        return "", f"OCR distant indisponible ({type(exc).__name__})"
+
+
+# ─── PDF ──────────────────────────────────────────────────────────────
 
 def _extract_pdf_text(data: bytes, filename: str) -> tuple[str, bool]:
-    """
-    Extrait le texte d'un PDF.
-
-    Returns: (text, ocr_needed)
-    - ocr_needed=True si le PDF semble scanné (pas de texte extrait)
-    """
+    """Extrait le texte d'un PDF. Retourne (text, ocr_needed)."""
     text = ""
     ocr_needed = False
 
-    # Essayer pdfplumber d'abord (meilleur pour le texte)
     try:
         import pdfplumber
 
@@ -129,7 +168,6 @@ def _extract_pdf_text(data: bytes, filename: str) -> tuple[str, bool]:
     except ImportError:
         pass
 
-    # Fallback: PyPDF2
     try:
         from PyPDF2 import PdfReader
 
@@ -146,7 +184,6 @@ def _extract_pdf_text(data: bytes, filename: str) -> tuple[str, bool]:
     except ImportError:
         pass
 
-    # Fallback: pikepdf + pdfminer
     try:
         from pdfminer.high_level import extract_text
 
@@ -157,17 +194,15 @@ def _extract_pdf_text(data: bytes, filename: str) -> tuple[str, bool]:
     except ImportError:
         pass
 
-    # Fallback sans dépendances PDF: extraire le contenu textuel brut des streams PDF.
     text = _extract_pdf_text_from_stream(data)
     if text.strip():
         return (text, False)
 
-    # Aucun extracteur PDF disponible
     return ("", True)
 
 
 def _extract_pdf_text_from_stream(data: bytes) -> str:
-    """Parse a simple PDF byte stream to recover visible text without external libraries."""
+    """Parse un flux PDF simple pour récupérer du texte visible."""
     try:
         decoded = data.decode("latin-1", errors="ignore")
     except Exception:
@@ -185,57 +220,42 @@ def _extract_pdf_text_from_stream(data: bytes) -> str:
         if literal.strip():
             candidates.append(literal)
 
-    if not candidates:
-        return ""
-
     return "\n\n".join(candidates)
 
 
-# ─── TEXT ──────────────────────────────────────────────────────────────
+# ─── TEXT ─────────────────────────────────────────────────────────────
 
 def _decode_text(data: bytes, filename: str) -> str:
     """Décodage tolerant pour fichiers texte."""
-    # Essayer UTF-8 d'abord
     try:
         return data.decode("utf-8")
     except UnicodeDecodeError:
         pass
 
-    # Fallback: latin-1 (jamais d'erreur)
     try:
         return data.decode("latin-1")
     except Exception:
         return ""
 
 
-# ─── URL EXTRACTION ────────────────────────────────────────────────────
+# ─── URL EXTRACTION ───────────────────────────────────────────────────
 
 def _extract_urls(text: str) -> list[str]:
-    """Extrait les URLs uniques depuis du texte.
-
-    Gère :
-    - https://example.com
-    - http://example.com
-    - [texte](https://example.com)  (Markdown)
-    - [https://example.com](url)    (Markdown inversé)
-    - www.example.com
-    """
+    """Extrait les URLs uniques depuis du texte."""
     if not text:
         return []
 
     urls: set[str] = set()
     seen: set[str] = set()
 
-    # 1. Extraire les URLs directes
     for match in URL_PATTERN.finditer(text):
-        url = match.group(0).rstrip(".,!?;:)\"')")
+        url = match.group(0).rstrip(".,!?;:)\"'")
         if url and url not in seen:
             seen.add(url)
             urls.add(url)
 
-    # 2. Extraire les URLs cachées dans du Markdown [texte](url)
     for match in MARKDOWN_LINK_PATTERN.finditer(text):
-        link_url = match.group(2).strip().rstrip(".,!?;:)\"')")
+        link_url = match.group(2).strip().rstrip(".,!?;:)\"'")
         if link_url and link_url not in seen:
             seen.add(link_url)
             urls.add(link_url)
