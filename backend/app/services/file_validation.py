@@ -7,9 +7,10 @@ from typing import BinaryIO
 ALLOWED_IMAGE_EXT = frozenset({".jpg", ".jpeg", ".png", ".webp"})
 ALLOWED_PDF_EXT = frozenset({".pdf"})
 ALLOWED_TXT_EXT = frozenset({".txt"})
-ALLOWED_EXTENSIONS = ALLOWED_IMAGE_EXT | ALLOWED_PDF_EXT | ALLOWED_TXT_EXT
+ALLOWED_DOCUMENT_EXT = frozenset({".docx"})
+ALLOWED_EXTENSIONS = ALLOWED_IMAGE_EXT | ALLOWED_PDF_EXT | ALLOWED_TXT_EXT | ALLOWED_DOCUMENT_EXT
 
-MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+MAX_SIZE_BYTES = 4 * 1024 * 1024  # 4 MB (compatible with Vercel Function request limit)
 
 MAGIC_BYTES = {
     b"\xff\xd8\xff": {".jpg", ".jpeg"},
@@ -26,7 +27,7 @@ class FileValidation:
     content_type: str
     size: int
     sha256: str
-    kind: str  # "image", "pdf", "text"
+    kind: str  # "image", "pdf", "docx", "text"
 
 
 def compute_sha256(data: bytes) -> str:
@@ -70,6 +71,7 @@ def validate_upload(
         ".webp": {"image/webp"},
         ".pdf": {"application/pdf"},
         ".txt": {"text/plain", "application/octet-stream"},
+        ".docx": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/octet-stream", "application/zip"},
     }
     allowed = allowed_mimes.get(ext, set())
     if normalized_content_type and normalized_content_type not in allowed:
@@ -81,6 +83,9 @@ def validate_upload(
     detected_ext = detect_extension_from_magic(data)
     if ext == ".webp" and not (data.startswith(b"RIFF") and len(data) >= 12 and data[8:12] == b"WEBP"):
         raise HTTPException(status_code=415, detail="Fichier WEBP invalide : signature RIFF/WEBP absente.")
+    if ext == ".docx" and not data.startswith(b"PK"):
+        raise HTTPException(status_code=415, detail="Fichier DOCX invalide : signature ZIP absente.")
+
     if detected_ext is not None and ext and detected_ext != ext:
         raise HTTPException(
             status_code=415,
@@ -91,6 +96,8 @@ def validate_upload(
         kind = "image"
     elif ext == ".pdf":
         kind = "pdf"
+    elif ext == ".docx":
+        kind = "docx"
     else:
         kind = "text"
 
