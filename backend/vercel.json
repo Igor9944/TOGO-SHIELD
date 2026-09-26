@@ -2,10 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/ocr.js": {
-      "includeFiles": [
-        "node_modules/tesseract.js/src/worker-script/node/**/*",
-        "node_modules/tesseract.js-core/**/*"
-      ],
+      "includeFiles": "node_modules/tesseract.js-core/**",
       "maxDuration": 60
     }
   }
