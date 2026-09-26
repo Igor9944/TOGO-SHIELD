@@ -18,7 +18,7 @@ class Indicator(BaseModel):
 
 
 class ProviderResult(BaseModel):
-    provider: str
+    provider: str = "unknown"
     known: bool = False
     malicious: bool = False
     detections: int = 0
