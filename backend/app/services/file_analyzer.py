@@ -20,6 +20,9 @@ from app.services.file_validation import validate_upload
 from app.services.file_extractor import extract_text_from_data
 from app.services.risk_engine import assess_risk
 from app.services.urlhaus_service import UrlhausResult, query_urlhaus
+from app.models.scan import ScanRecord
+import json
+from sqlalchemy.orm import Session
 
 if TYPE_CHECKING:
     from app.schemas.scan import ScanResult
@@ -101,3 +104,53 @@ def analyze_file(
             urlhaus=urlhaus_results,
         ),
     )
+
+
+
+def persist_file_analysis(
+    result: FileAnalysisResponse,
+    db: Session,
+    *,
+    source: str = "file",
+    telegram: dict[str, int] | None = None,
+) -> int:
+    """Persist a completed file analysis and return the scan id."""
+    togo = result.analyses.togo_shield
+    record = ScanRecord(
+        source=source,
+        content=result.extracted_content.text,
+        score=togo.score if togo else 0,
+        level=togo.risk_level if togo else "low",
+        threat_type=togo.threat_type if togo else "low risk",
+        confidence=round((togo.confidence if togo else 0.0) * 100),
+        telegram_chat_id=telegram.get("chat_id") if telegram else None,
+        telegram_user_id=telegram.get("user_id") if telegram else None,
+        telegram_message_id=(telegram.get("message_id") or None) if telegram else None,
+        media_type=result.file.type,
+        file_name=result.file.filename,
+        file_type=result.file.type,
+        file_size=result.file.size,
+        file_sha256=result.file.sha256,
+        extracted_text=result.extracted_content.text,
+        indicators_json=json.dumps(
+            [item.model_dump() for item in (togo.indicators if togo else [])],
+            ensure_ascii=False,
+        ),
+        threat_intelligence_json=json.dumps(
+            [item.model_dump() for item in result.analyses.urlhaus],
+            ensure_ascii=False,
+        ),
+        score_breakdown_json=json.dumps(
+            togo.score_breakdown if togo else [],
+            ensure_ascii=False,
+        ),
+    )
+    try:
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        result.scan_id = record.id
+        return record.id
+    except Exception:
+        db.rollback()
+        raise
