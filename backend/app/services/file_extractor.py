@@ -13,7 +13,8 @@ from dataclasses import dataclass
 from io import BytesIO
 from typing import Optional
 
-URL_PATTERN = re.compile(r"https?://[^\s<>]+", re.IGNORECASE)
+URL_PATTERN = re.compile(r"https?://[^\s<>)\]]+", re.IGNORECASE)
+MARKDOWN_LINK_PATTERN = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 
 
 @dataclass
@@ -210,16 +211,33 @@ def _decode_text(data: bytes, filename: str) -> str:
 # ─── URL EXTRACTION ────────────────────────────────────────────────────
 
 def _extract_urls(text: str) -> list[str]:
-    """Extrait les URLs uniques depuis du texte."""
+    """Extrait les URLs uniques depuis du texte.
+
+    Gère :
+    - https://example.com
+    - http://example.com
+    - [texte](https://example.com)  (Markdown)
+    - [https://example.com](url)    (Markdown inversé)
+    - www.example.com
+    """
     if not text:
         return []
-    raw_urls = URL_PATTERN.findall(text)
-    # Nettoyer les URLs (retirer ponctuation de fin)
-    cleaned = []
-    seen = set()
-    for url in raw_urls:
-        url = url.rstrip(".,!?;:)\"')\n")
+
+    urls: set[str] = set()
+    seen: set[str] = set()
+
+    # 1. Extraire les URLs directes
+    for match in URL_PATTERN.finditer(text):
+        url = match.group(0).rstrip(".,!?;:)\"')")
         if url and url not in seen:
             seen.add(url)
-            cleaned.append(url)
-    return cleaned
+            urls.add(url)
+
+    # 2. Extraire les URLs cachées dans du Markdown [texte](url)
+    for match in MARKDOWN_LINK_PATTERN.finditer(text):
+        link_url = match.group(2).strip().rstrip(".,!?;:)\"')")
+        if link_url and link_url not in seen:
+            seen.add(link_url)
+            urls.add(link_url)
+
+    return sorted(urls)
