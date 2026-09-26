@@ -2,6 +2,7 @@ const { createWorker } = require("tesseract.js");
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const WORKER_PATH = require.resolve("tesseract.js/src/worker-script/node/index.js");
+const CACHE_PATH = "/tmp/togo-shield-ocr";
 
 function readBody(req) {
   if (Buffer.isBuffer(req.body)) return Promise.resolve(req.body);
@@ -55,6 +56,8 @@ module.exports = async function handler(req, res) {
   try {
     worker = await createWorker(["fra", "eng"], 1, {
       workerPath: WORKER_PATH,
+      cachePath: CACHE_PATH,
+      cacheMethod: "write",
     });
     const result = await worker.recognize(image);
     const text = String(result?.data?.text || "").trim();
