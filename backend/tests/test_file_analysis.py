@@ -224,6 +224,23 @@ class TestFileAnalyzer:
         assert urlhaus_entry.source == "urlhaus"
         assert urlhaus_entry.url == "https://example.com"
 
+    def test_frontend_ocr_text_is_used(self):
+        """Le texte OCR fourni par Tesseract.js alimente bien l'analyse."""
+        data = make_png_data()
+        result = analyze_file(
+            "capture.png",
+            "image/png",
+            data,
+            ocr_text="URGENT : votre compte est suspendu. https://example.com/login",
+        )
+
+        assert result.extracted_content.text.startswith("URGENT")
+        assert result.extracted_content.ocr_used is True
+        assert result.extracted_content.extraction_method == "tesseract_js"
+        assert result.extracted_content.urls == ["https://example.com/login"]
+        assert result.analyses.togo_shield is not None
+        assert result.analyses.togo_shield.score > 0
+
     def test_no_text_no_score(self):
         """Fichier sans contenu exploitable → score 0."""
         data = make_png_data()  # sans OCR
