@@ -37,7 +37,7 @@ type FileAnalysis = {
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".txt"];
-const API_URL = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+const API_URL = (import.meta.env.VITE_API_URL ?? "https://togo-shield.vercel.app").replace(/\/$/, "");
 const FILE_API_URL = API_URL ? `${API_URL}/api/analyze/file` : "/api/analyze/file";
 
 const formatBytes = (bytes: number) => {
@@ -86,6 +86,8 @@ export default function App() {
     }
     setFileError("");
     setSelectedFile(file);
+    setFileResult(null);
+    setShowMoreExtracted(false);
   };
 
   const onFileInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -111,6 +113,9 @@ export default function App() {
       });
       if (!response.ok) throw new Error("scan failed");
       setResult(await response.json());
+    } catch (error) {
+      const message = error instanceof Error && error.message ? error.message : "Erreur serveur lors de l'analyse.";
+      setFileError(message);
     } finally {
       setLoading(false);
     }
@@ -218,7 +223,7 @@ export default function App() {
                     <b>/100</b>
                   </strong>
                 </div>
-                <span className={`risk ${result.level}`}>{result.level}</span>
+                <span className={`risk ${normalizeLevel(result.level)}`}>{normalizeLevel(result.level)}</span>
               </div>
               <h3>{result.threat_type}</h3>
               <div className="bar">
@@ -260,6 +265,15 @@ export default function App() {
           }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={onDrop}
+          role="button"
+          tabIndex={0}
+          aria-label="Choisir un fichier à analyser"
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              fileInputRef.current?.click();
+            }
+          }}
         >
           <UploadCloud size={36} />
           <p>Glissez votre fichier ici</p>
@@ -335,7 +349,7 @@ export default function App() {
                       <small>Score</small>
                       <strong>{togoShield.score}<b>/100</b></strong>
                     </div>
-                    <span className={riskBadgeClass(togoShield.risk_level)}>{togoShield.risk_level}</span>
+                    <span className={riskBadgeClass(togoShield.risk_level)}>{normalizeLevel(togoShield.risk_level)}</span>
                   </div>
                   <p className="label">Niveau</p>
                   <div className="bar">
