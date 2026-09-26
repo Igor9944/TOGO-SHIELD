@@ -35,8 +35,8 @@ type FileAnalysis = {
   };
 };
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".txt"];
+const MAX_FILE_SIZE = 4 * 1024 * 1024;
+const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".txt", ".docx"];
 const API_URL = (import.meta.env.VITE_API_URL ?? "https://togo-shield.vercel.app").replace(/\/$/, "");
 const FILE_API_URL = API_URL ? `${API_URL}/api/analyze/file` : "/api/analyze/file";
 
@@ -66,10 +66,10 @@ export default function App() {
   const validateSelectedFile = (file: File) => {
     const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
     if (!ALLOWED_EXTENSIONS.includes(extension)) {
-      return "Type de fichier non supporté. Formats acceptés : JPG, JPEG, PNG, WEBP, PDF, TXT.";
+      return "Type de fichier non supporté. Formats acceptés : JPG, JPEG, PNG, WEBP, PDF, TXT, DOCX.";
     }
     if (file.size > MAX_FILE_SIZE) {
-      return "Le fichier est trop volumineux. La taille maximale autorisée est de 10 MB.";
+      return "Le fichier est trop volumineux. La taille maximale autorisée est de 4 MB.";
     }
     return "";
   };
@@ -279,13 +279,13 @@ export default function App() {
           <UploadCloud size={36} />
           <p>Glissez votre fichier ici</p>
           <span>ou cliquez pour choisir</span>
-          <small>JPG, JPEG, PNG, WEBP, PDF, TXT • Maximum 10 MB</small>
+          <small>JPG, JPEG, PNG, WEBP, PDF, TXT, DOCX • Maximum 4 MB</small>
         </div>
 
         <input
           ref={fileInputRef}
           type="file"
-          accept=".jpg,.jpeg,.png,.webp,.pdf,.txt,image/jpeg,image/png,image/webp,application/pdf,text/plain"
+          accept=".jpg,.jpeg,.png,.webp,.pdf,.txt,.docx,image/jpeg,image/png,image/webp,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           hidden
           onChange={onFileInputChange}
         />
