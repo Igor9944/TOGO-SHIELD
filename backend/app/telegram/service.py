@@ -9,6 +9,9 @@ from app.schemas.scan import ScanResult
 from app.telegram.formatter import format_file_analysis, format_scan_result
 
 logger = logging.getLogger(__name__)
+# httpx/httpcore log full Telegram API URLs at INFO; those URLs contain the bot token.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 TELEGRAM_MAX_MESSAGE_LENGTH = 4096
 TELEGRAM_DOWNLOAD_CHUNK_SIZE = 256 * 1024
 
