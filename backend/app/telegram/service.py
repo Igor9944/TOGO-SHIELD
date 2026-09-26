@@ -6,7 +6,7 @@ from app.core.config import get_settings
 
 from app.schemas.file_analysis import FileAnalysisResponse
 from app.schemas.scan import ScanResult
-from app.telegram.formatter import format_scan_result
+from app.telegram.formatter import format_file_analysis, format_scan_result
 
 logger = logging.getLogger(__name__)
 TELEGRAM_MAX_MESSAGE_LENGTH = 4096
@@ -75,6 +75,10 @@ async def send_text(chat_id: int, text: str) -> bool:
 
 async def send_message(chat_id: int, result: ScanResult) -> bool:
     return await send_text(chat_id, format_scan_result(result))
+
+
+async def send_file_message(chat_id: int, result: FileAnalysisResponse) -> bool:
+    return await send_text(chat_id, format_file_analysis(result))
 
 
 async def ensure_webhook() -> bool:
