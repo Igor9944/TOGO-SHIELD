@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -37,6 +37,7 @@ router = APIRouter(prefix="/api/analyze", tags=["file-analysis"])
 )
 async def analyze_file_upload(
     file: UploadFile = File(...),
+    ocr_text: str | None = Form(default=None),
     db: Session = Depends(get_db),
 ) -> FileAnalysisResponse:
     """
@@ -70,6 +71,7 @@ async def analyze_file_upload(
             filename=file.filename or "unknown",
             content_type=file.content_type or "application/octet-stream",
             data=data,
+            ocr_text=ocr_text,
         )
     except HTTPException:
         raise
