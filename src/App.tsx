@@ -197,7 +197,7 @@ export default function App() {
         <div className="panel input-panel">
           <div className="panel-heading">
             <span>Nouvelle analyse</span>
-            <small>Telegram compatible</small>
+            <small>Web + Telegram • 4 MB max</small>
           </div>
           <textarea
             value={content}
