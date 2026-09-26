@@ -39,6 +39,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".txt"];
 const API_URL = (import.meta.env.VITE_API_URL ?? "https://togo-shield.vercel.app").replace(/\/$/, "");
 const FILE_API_URL = API_URL ? `${API_URL}/api/analyze/file` : "/api/analyze/file";
+const OCR_API_URL = (import.meta.env.VITE_OCR_API_URL ?? "/api/ocr").replace(/\/$/, "");
 
 const formatBytes = (bytes: number) => {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -121,6 +122,24 @@ export default function App() {
     }
   }
 
+  async function runCloudOcr(file: File): Promise<string> {
+    const response = await fetch(OCR_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": file.type,
+      },
+      body: file,
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload?.detail || "OCR indisponible pour cette image.");
+    }
+
+    const payload = await response.json();
+    return typeof payload?.text === "string" ? payload.text.trim() : "";
+  }
+
   async function analyzeFile() {
     if (!selectedFile) return;
     const validationError = validateSelectedFile(selectedFile);
@@ -136,6 +155,16 @@ export default function App() {
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
+
+      // Vercel Python n'a pas nécessairement le binaire système Tesseract.
+      // Pour les images, l'OCR est donc réalisé par la fonction Node/Tesseract.js.
+      const extension = selectedFile.name.slice(selectedFile.name.lastIndexOf(".")).toLowerCase();
+      const isImage = [".jpg", ".jpeg", ".png", ".webp"].includes(extension);
+
+      if (isImage) {
+        const ocrText = await runCloudOcr(selectedFile);
+        formData.append("ocr_text", ocrText);
+      }
 
       const response = await fetch(FILE_API_URL, {
         method: "POST",
