@@ -18,6 +18,7 @@ from app.schemas.file_analysis import (
 )
 from app.services.file_validation import validate_upload
 from app.services.file_extractor import extract_text_from_data
+from app.services.url_analyzer import extract_urls
 from app.services.risk_engine import assess_risk
 from app.services.urlhaus_service import UrlhausResult, query_urlhaus
 
@@ -31,6 +32,7 @@ def analyze_file(
     filename: str,
     content_type: str,
     data: bytes,
+    ocr_text: str | None = None,
 ) -> FileAnalysisResponse:
     """
     Analyse complète d'un fichier.
@@ -47,6 +49,16 @@ def analyze_file(
     )
 
     raw_extracted = extract_text_from_data(data, validation.kind, filename)
+
+    if validation.kind == "image" and ocr_text is not None:
+        safe_ocr_text = ocr_text.strip()[:1_000_000]
+        if safe_ocr_text:
+            raw_extracted.text = safe_ocr_text
+            raw_extracted.urls = extract_urls(safe_ocr_text)
+            raw_extracted.ocr_used = True
+            raw_extracted.ocr_message = "OCR appliqué avec Tesseract.js"
+            raw_extracted.extraction_method = "tesseract_js"
+
     extracted_content = ExtractedContent(
         text=raw_extracted.text,
         urls=raw_extracted.urls,
