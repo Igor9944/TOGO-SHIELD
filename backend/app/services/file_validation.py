@@ -14,7 +14,7 @@ MAX_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 MAGIC_BYTES = {
     b"\xff\xd8\xff": {".jpg", ".jpeg"},
     b"\x89PNG\r\n\x1a\n": {".png"},
-    b"RIFF": {".webp"},  # WebP starts with RIFF....WEBP
+    b"RIFF": {".webp"},  # Additional RIFF/WEBP signature check below
     b"%PDF": {".pdf"},
 }
 
@@ -79,6 +79,8 @@ def validate_upload(
         )
 
     detected_ext = detect_extension_from_magic(data)
+    if ext == ".webp" and not (data.startswith(b"RIFF") and len(data) >= 12 and data[8:12] == b"WEBP"):
+        raise HTTPException(status_code=415, detail="Fichier WEBP invalide : signature RIFF/WEBP absente.")
     if detected_ext is not None and ext and detected_ext != ext:
         raise HTTPException(
             status_code=415,
