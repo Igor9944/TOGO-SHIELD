@@ -6,6 +6,8 @@ from app.api.dashboard import router as dashboard_router
 from app.api.scans import router as scans_router
 from app.api.file_analysis import router as file_analysis_router
 from app.api.telegram import router as telegram_router
+from app.core.database import ensure_production_schema
+from app.telegram.service import ensure_webhook
 
 
 settings = get_settings()
@@ -29,3 +31,10 @@ app.include_router(file_analysis_router)
 app.include_router(scans_router)
 app.include_router(dashboard_router)
 app.include_router(telegram_router)
+
+
+@app.on_event("startup")
+async def startup_checks() -> None:
+    ensure_production_schema()
+    if settings.telegram_enabled:
+        await ensure_webhook()
