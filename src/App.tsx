@@ -173,6 +173,8 @@ export default function App() {
 
   return (
     <main className="shell">
+      <div className="background-logo" aria-hidden="true" />
+      <div className="background-overlay" aria-hidden="true" />
       <nav>
         <div className="brand">
           <img src="/brand/togo-shield-logo.jpg" alt="TOGO-SHIELD — Cybersécurité nationale" className="brand-logo" />
