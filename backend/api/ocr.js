@@ -1,6 +1,7 @@
 const { createWorker } = require("tesseract.js");
 
 const MAX_BYTES = 10 * 1024 * 1024;
+const WORKER_PATH = require.resolve("tesseract.js/src/worker-script/node/index.js");
 
 function readBody(req) {
   if (Buffer.isBuffer(req.body)) return Promise.resolve(req.body);
@@ -52,7 +53,9 @@ module.exports = async function handler(req, res) {
 
   let worker;
   try {
-    worker = await createWorker(["fra", "eng"], 1);
+    worker = await createWorker(["fra", "eng"], 1, {
+      workerPath: WORKER_PATH,
+    });
     const result = await worker.recognize(image);
     const text = String(result?.data?.text || "").trim();
     return res.status(200).json({
@@ -71,9 +74,7 @@ module.exports = async function handler(req, res) {
     if (worker) {
       try {
         await worker.terminate();
-      } catch (_) {
-        // Ignore cleanup failures.
-      }
+      } catch (_) {}
     }
   }
 };
