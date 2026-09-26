@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     telegram_enabled: bool = False
     telegram_mode: str = "webhook"
     telegram_bot_token: str | None = None
-    telegram_webhook_url: str | None = None
+    telegram_webhook_url: str | None = "https://togo-shield.vercel.app/api/telegram/webhook"
     telegram_webhook_secret: str | None = None
     virustotal_api_key: str | None = None
     urlhaus_api_key: str | None = None
