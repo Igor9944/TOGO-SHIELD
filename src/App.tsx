@@ -4,6 +4,7 @@ import { ChangeEvent, DragEvent, useRef, useState } from "react";
 type ScanResult = { score: number; level: string; threat_type: string; indicators: { description: string }[]; recommendations: string[] };
 
 type FileAnalysis = {
+  scan_id?: number | null;
   file: { filename: string; type: string; size: number; sha256: string };
   extracted_content: {
     text: string;
@@ -332,6 +333,7 @@ export default function App() {
               <small>Informations</small>
             </div>
             <ul className="meta-list">
+              {fileResult.scan_id != null && <li><strong>Scan ID :</strong> #{fileResult.scan_id}</li>}
               <li><strong>Nom :</strong> {fileResult.file.filename}</li>
               <li><strong>Type :</strong> {fileResult.file.type || "inconnu"}</li>
               <li><strong>Taille :</strong> {formatBytes(fileResult.file.size)}</li>
