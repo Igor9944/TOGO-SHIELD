@@ -120,6 +120,13 @@ class UrlhausAnalysis(BaseModel):
     error: str | None = None
 
 
+class FileAnalyses(BaseModel):
+    """Conteneur séparé pour les deux moteurs d'analyse."""
+
+    togo_shield: TogoShieldAnalysis | None = None
+    urlhaus: list[UrlhausAnalysis] = Field(default_factory=list)
+
+
 # ─── Réponse complète ────────────────────────────────────────────────────
 
 class FileAnalysisResponse(BaseModel):
@@ -128,10 +135,3 @@ class FileAnalysisResponse(BaseModel):
     file: FileInfo
     extracted_content: ExtractedContent
     analyses: FileAnalyses
-
-
-class FileAnalyses(BaseModel):
-    """Conteneur séparé pour les deux moteurs d'analyse."""
-
-    togo_shield: TogoShieldAnalysis | None = None
-    urlhaus: list[UrlhausAnalysis] = Field(default_factory=list)
