@@ -55,6 +55,7 @@ module.exports = async function handler(req, res) {
   try {
     worker = await createWorker(["fra", "eng"], 1, {
       workerPath: WORKER_PATH,
+      corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0",
     });
     const result = await worker.recognize(image);
     const text = String(result?.data?.text || "").trim();
