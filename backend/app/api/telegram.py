@@ -7,7 +7,8 @@ from app.core.database import get_db
 from app.models.scan import ScanRecord
 from app.schemas.scan import ScanRequest, TelegramStatus
 from app.services.scan_service import analyze_and_persist
-from app.telegram.service import send_message, send_text
+from app.services.file_analyzer import analyze_file, persist_file_analysis
+from app.telegram.service import download_telegram_file, send_file_message, send_message, send_text
 
 router = APIRouter(prefix="/api/telegram", tags=["telegram"])
 
@@ -45,6 +46,60 @@ async def telegram_webhook(
     message_id = message.get("message_id")
     if message_id and db.scalar(select(ScanRecord.id).where(ScanRecord.telegram_message_id == message_id)):
         return {"status": "duplicate"}
+
+    document = message.get("document")
+    photo = message.get("photo") or []
+
+    # Telegram media: document ou photo → téléchargement → validation/extraction/OCR → analyse.
+    if document or photo:
+        try:
+            if document:
+                file_id = document.get("file_id")
+                filename = document.get("file_name") or "telegram_file"
+                content_type = document.get("mime_type") or "application/octet-stream"
+            else:
+                largest_photo = max(
+                    photo,
+                    key=lambda item: (item.get("file_size") or 0, item.get("width") or 0, item.get("height") or 0),
+                )
+                file_id = largest_photo.get("file_id")
+                filename = "telegram_photo.jpg"
+                content_type = "image/jpeg"
+
+            if not file_id:
+                await send_text(int(chat_id), "⚠️ Fichier Telegram invalide ou introuvable.")
+                return {"status": "invalid_media"}
+
+            data, _ = await download_telegram_file(str(file_id))
+            file_result = analyze_file(
+                filename=filename,
+                content_type=content_type,
+                data=data,
+            )
+            persist_file_analysis(
+                file_result,
+                db,
+                source="telegram",
+                telegram={
+                    "chat_id": int(chat_id),
+                    "user_id": int(message.get("from", {}).get("id", 0)),
+                    "message_id": int(message_id) if message_id else 0,
+                },
+            )
+            sent = await send_file_message(int(chat_id), file_result)
+            return {"status": "processed_file" if sent else "processed_file_no_reply"}
+
+        except HTTPException as exc:
+            await send_text(int(chat_id), f"⚠️ Fichier non analysé : {exc.detail}")
+            return {"status": "unsupported_media"}
+        except ValueError as exc:
+            await send_text(int(chat_id), f"⚠️ Fichier non analysé : {exc}")
+            return {"status": "invalid_media"}
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).exception("Telegram media analysis failed: %s", exc)
+            await send_text(int(chat_id), "⚠️ Impossible d'analyser ce fichier pour le moment.")
+            return {"status": "media_error"}
 
     text = (message.get("text") or message.get("caption") or "").strip()
     if not text:
