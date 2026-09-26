@@ -183,6 +183,32 @@ class TestFileExtraction:
 # ═══════════════════════════════════════════════════════════════════════════
 
 class TestFileAnalyzer:
+    def test_remote_ocr_fallback(self, monkeypatch):
+        """Le fallback HTTP OCR retourne le texte distant."""
+        from app.services import file_extractor
+
+        monkeypatch.setenv("OCR_SERVICE_URL", "https://ocr.example/api/ocr")
+
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {"text": "URGENT : vérifiez votre compte"}
+
+        def fake_post(url, content, headers, timeout):
+            assert url == "https://ocr.example/api/ocr"
+            assert content == b"image-bytes"
+            assert headers["content-type"] == "application/octet-stream"
+            assert timeout == 45.0
+            return FakeResponse()
+
+        monkeypatch.setattr(file_extractor.httpx, "post", fake_post)
+
+        text, error = file_extractor._ocr_remote(b"image-bytes")
+        assert text == "URGENT : vérifiez votre compte"
+        assert error is None
+
     def test_txt_analysis(self):
         """Analyse d'un fichier TXT simple."""
         data = make_txt_data("Urgent : votre compte est suspendu. Vérifiez immédiatement.")
